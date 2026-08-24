@@ -1,0 +1,421 @@
+"""Single-file Streamlit app for the EMIPredict AI notebook artifacts.
+
+Run the notebook first. It creates the model files in artifacts/models/.
+Then start this application with:
+    .\\.venv\\Scripts\\streamlit.exe run streamlit_app.py
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import joblib
+import pandas as pd
+import streamlit as st
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+MODEL_DIR = PROJECT_ROOT / "artifacts" / "models"
+CLASSIFICATION_MODEL_PATH = MODEL_DIR / "best_classification_pipeline.joblib"
+REGRESSION_MODEL_PATH = MODEL_DIR / "best_regression_pipeline.joblib"
+METADATA_PATH = MODEL_DIR / "model_metadata.json"
+CLASSIFICATION_RESULTS_PATH = MODEL_DIR / "classification_comparison.csv"
+REGRESSION_RESULTS_PATH = MODEL_DIR / "regression_comparison.csv"
+
+
+def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
+    """Divide safely and keep an undefined ratio as missing instead of infinity."""
+
+    denominator = denominator.mask(denominator == 0)
+    return numerator / denominator
+
+
+def add_financial_features(frame: pd.DataFrame) -> pd.DataFrame:
+    """Create the same financial features used by the training notebook."""
+
+    result = frame.copy()
+    expense_columns = [
+        "monthly_rent",
+        "school_fees",
+        "college_fees",
+        "travel_expenses",
+        "groceries_utilities",
+        "other_monthly_expenses",
+    ]
+    result["total_monthly_expenses"] = result[expense_columns].sum(axis=1)
+    result["annual_income"] = result["monthly_salary"] * 12
+    result["expense_to_income_ratio"] = safe_divide(
+        result["total_monthly_expenses"], result["monthly_salary"]
+    )
+    result["existing_emi_burden"] = safe_divide(
+        result["current_emi_amount"], result["monthly_salary"]
+    )
+    result["disposable_income"] = (
+        result["monthly_salary"]
+        - result["total_monthly_expenses"]
+        - result["current_emi_amount"]
+    )
+    result["loan_to_income_ratio"] = safe_divide(
+        result["requested_amount"], result["annual_income"]
+    )
+    result["emergency_fund_coverage"] = safe_divide(
+        result["emergency_fund"], result["total_monthly_expenses"]
+    )
+    result["balance_to_income_ratio"] = safe_divide(
+        result["bank_balance"], result["monthly_salary"]
+    )
+    result["dependent_burden"] = safe_divide(
+        result["dependents"], result["family_size"]
+    )
+    result["requested_payment_proxy"] = safe_divide(
+        result["requested_amount"], result["requested_tenure"]
+    )
+    result["financial_cushion"] = (
+        result["disposable_income"] - result["requested_payment_proxy"]
+    )
+    return result
+
+
+@st.cache_resource
+def load_artifacts() -> tuple[Any, Any, dict[str, Any]]:
+    """Load fitted pipelines once per Streamlit process."""
+
+    required_files = [
+        CLASSIFICATION_MODEL_PATH,
+        REGRESSION_MODEL_PATH,
+        METADATA_PATH,
+    ]
+    missing = [path.name for path in required_files if not path.exists()]
+    if missing:
+        raise FileNotFoundError(
+            "Missing model artifacts: "
+            + ", ".join(missing)
+            + ". Run EMIPredict_AI_Project.ipynb first."
+        )
+
+    classifier = joblib.load(CLASSIFICATION_MODEL_PATH)
+    regressor = joblib.load(REGRESSION_MODEL_PATH)
+    metadata = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
+    return classifier, regressor, metadata
+
+
+def format_inr(amount: float) -> str:
+    """Display a number as an INR amount without claiming bank approval."""
+
+    return f"₹{amount:,.0f}"
+
+
+def build_recommendation(
+    eligibility: str,
+    predicted_emi: float,
+    engineered_input: pd.DataFrame,
+) -> list[str]:
+    """Return transparent, educational observations from calculated ratios."""
+
+    row = engineered_input.iloc[0]
+    notes: list[str] = []
+
+    if row["existing_emi_burden"] > 0.30:
+        notes.append("Existing EMI burden is high relative to monthly salary.")
+    if row["expense_to_income_ratio"] > 0.50:
+        notes.append("Monthly living expenses take a large share of income.")
+    if row["emergency_fund_coverage"] < 3:
+        notes.append("Emergency savings cover fewer than three months of expenses.")
+    if row["financial_cushion"] < 0:
+        notes.append("The simple requested-payment proxy exceeds disposable income.")
+    if row["credit_score"] < 650:
+        notes.append("The entered credit score is relatively low in this dataset's range.")
+
+    if not notes:
+        notes.append("No simple ratio-based warning was triggered for this entered profile.")
+
+    if eligibility == "Not_Eligible":
+        notes.append(
+            "Consider reducing the requested amount or reviewing the repayment tenure."
+        )
+    elif eligibility == "High_Risk":
+        notes.append(
+            "Treat this result as a caution signal and review the full financial profile."
+        )
+    else:
+        notes.append(
+            "The model result is favourable, but it is still decision support, not approval."
+        )
+
+    notes.append(f"The model-estimated maximum safe EMI is {format_inr(predicted_emi)} per month.")
+    return notes
+
+
+def render_home() -> None:
+    """Show a short, evaluation-friendly overview."""
+
+    st.title("EMIPredict AI")
+    st.caption("Intelligent financial-risk and EMI-affordability assessment")
+
+    with st.container(border=True):
+        st.subheader("What this app does")
+        st.write(
+            "It uses the two models trained in the notebook to estimate an EMI "
+            "eligibility category and a maximum safe monthly EMI amount."
+        )
+
+    with st.container(border=True):
+        st.subheader("Before using the assessment")
+        st.write(
+            "Run `EMIPredict_AI_Project.ipynb` from top to bottom. It cleans the "
+            "dataset, trains three classification and three regression models, logs "
+            "runs to MLflow, selects models using validation metrics, and saves the "
+            "best pipelines in `artifacts/models/`."
+        )
+
+    st.info(
+        "This is an educational decision-support project. It is not an automated "
+        "loan-approval system and does not replace a lender's policy or human review."
+    )
+
+
+def render_assessment() -> None:
+    """Collect one customer profile and display model predictions."""
+
+    st.title("Customer assessment")
+    st.caption("Enter a sample financial profile, then submit once to run both models.")
+
+    try:
+        classifier, regressor, metadata = load_artifacts()
+    except FileNotFoundError as error:
+        st.warning(str(error))
+        return
+
+    with st.form("customer_assessment", border=True):
+        st.subheader("Personal and employment details")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            age = st.number_input("Age", min_value=18, max_value=100, value=35)
+            gender = st.selectbox("Gender", ["Female", "Male"])
+            marital_status = st.selectbox("Marital status", ["Single", "Married"])
+            education = st.selectbox(
+                "Education",
+                ["High School", "Graduate", "Post Graduate", "Professional"],
+            )
+        with col2:
+            monthly_salary = st.number_input(
+                "Monthly salary (₹)", min_value=1_000.0, value=60_000.0, step=1_000.0
+            )
+            employment_type = st.selectbox(
+                "Employment type", ["Private", "Government", "Self-employed"]
+            )
+            years_of_employment = st.number_input(
+                "Years of employment", min_value=0.0, max_value=50.0, value=5.0, step=0.5
+            )
+            company_type = st.selectbox(
+                "Company type", ["Small", "Startup", "Mid-size", "Large Indian", "MNC"]
+            )
+        with col3:
+            house_type = st.selectbox("House type", ["Rented", "Own", "Family"])
+            family_size = st.number_input("Family size", min_value=1, max_value=20, value=3)
+            dependents = st.number_input(
+                "Dependents", min_value=0, max_value=int(family_size), value=1
+            )
+            credit_score = st.number_input(
+                "Credit score", min_value=300.0, max_value=850.0, value=700.0, step=1.0
+            )
+
+        st.subheader("Monthly obligations and financial status")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            monthly_rent = st.number_input("Monthly rent (₹)", min_value=0.0, value=15_000.0, step=500.0)
+            school_fees = st.number_input("School fees (₹)", min_value=0.0, value=0.0, step=500.0)
+            college_fees = st.number_input("College fees (₹)", min_value=0.0, value=0.0, step=500.0)
+        with col2:
+            travel_expenses = st.number_input("Travel expenses (₹)", min_value=0.0, value=4_000.0, step=500.0)
+            groceries_utilities = st.number_input("Groceries and utilities (₹)", min_value=0.0, value=12_000.0, step=500.0)
+            other_monthly_expenses = st.number_input("Other monthly expenses (₹)", min_value=0.0, value=5_000.0, step=500.0)
+        with col3:
+            existing_loans = st.selectbox("Existing loans", ["No", "Yes"])
+            current_emi_amount = st.number_input("Current EMI amount (₹)", min_value=0.0, value=0.0, step=500.0)
+            bank_balance = st.number_input("Bank balance (₹)", min_value=0.0, value=150_000.0, step=1_000.0)
+            emergency_fund = st.number_input("Emergency fund (₹)", min_value=0.0, value=75_000.0, step=1_000.0)
+
+        st.subheader("Requested EMI details")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            emi_scenario = st.selectbox(
+                "EMI scenario",
+                [
+                    "E-commerce Shopping EMI",
+                    "Home Appliances EMI",
+                    "Vehicle EMI",
+                    "Personal Loan EMI",
+                    "Education EMI",
+                ],
+            )
+        with col2:
+            requested_amount = st.number_input(
+                "Requested amount (₹)", min_value=1_000.0, value=250_000.0, step=1_000.0
+            )
+        with col3:
+            requested_tenure = st.number_input(
+                "Requested tenure (months)", min_value=1, max_value=120, value=24
+            )
+
+        submitted = st.form_submit_button(
+            "Run assessment", type="primary", icon=":material/analytics:"
+        )
+
+    if not submitted:
+        return
+
+    raw_input = pd.DataFrame(
+        [
+            {
+                "age": age,
+                "gender": gender,
+                "marital_status": marital_status,
+                "education": education,
+                "monthly_salary": monthly_salary,
+                "employment_type": employment_type,
+                "years_of_employment": years_of_employment,
+                "company_type": company_type,
+                "house_type": house_type,
+                "monthly_rent": monthly_rent,
+                "family_size": family_size,
+                "dependents": dependents,
+                "school_fees": school_fees,
+                "college_fees": college_fees,
+                "travel_expenses": travel_expenses,
+                "groceries_utilities": groceries_utilities,
+                "other_monthly_expenses": other_monthly_expenses,
+                "existing_loans": existing_loans,
+                "current_emi_amount": current_emi_amount,
+                "credit_score": credit_score,
+                "bank_balance": bank_balance,
+                "emergency_fund": emergency_fund,
+                "emi_scenario": emi_scenario,
+                "requested_amount": requested_amount,
+                "requested_tenure": requested_tenure,
+            }
+        ]
+    )
+    engineered_input = add_financial_features(raw_input)
+    model_input = engineered_input.reindex(columns=metadata["feature_columns"])
+
+    predicted_code = int(classifier.predict(model_input)[0])
+    class_labels = metadata["class_labels"]
+    eligibility = class_labels[predicted_code]
+    probabilities = classifier.predict_proba(model_input)[0]
+    predicted_emi = float(regressor.predict(model_input)[0])
+
+    st.subheader("Assessment result")
+    with st.container(horizontal=True):
+        st.metric("Eligibility", eligibility, border=True)
+        st.metric("Maximum recommended EMI", format_inr(predicted_emi), border=True)
+        st.metric(
+            "Disposable income",
+            format_inr(float(engineered_input.loc[0, "disposable_income"])),
+            border=True,
+        )
+
+    probability_table = pd.DataFrame(
+        {"Eligibility class": class_labels, "Probability": probabilities}
+    )
+    with st.container(border=True):
+        st.subheader("Eligibility probabilities")
+        st.bar_chart(probability_table, x="Eligibility class", y="Probability")
+        st.dataframe(
+            probability_table,
+            column_config={
+                "Probability": st.column_config.NumberColumn(format="percent")
+            },
+            hide_index=True,
+        )
+
+    ratio_table = pd.DataFrame(
+        {
+            "Measure": [
+                "Expense-to-income ratio",
+                "Existing EMI burden",
+                "Emergency-fund coverage (months)",
+                "Requested payment proxy",
+                "Financial cushion",
+            ],
+            "Value": [
+                f"{engineered_input.loc[0, 'expense_to_income_ratio']:.1%}",
+                f"{engineered_input.loc[0, 'existing_emi_burden']:.1%}",
+                f"{engineered_input.loc[0, 'emergency_fund_coverage']:.1f}",
+                format_inr(float(engineered_input.loc[0, "requested_payment_proxy"])),
+                format_inr(float(engineered_input.loc[0, "financial_cushion"])),
+            ],
+        }
+    )
+    with st.container(border=True):
+        st.subheader("Calculated financial measures")
+        st.dataframe(ratio_table, hide_index=True)
+
+    with st.container(border=True):
+        st.subheader("Transparent recommendation notes")
+        for note in build_recommendation(eligibility, predicted_emi, engineered_input):
+            st.write(f"- {note}")
+
+    st.caption(
+        "The requested-payment value is only requested amount ÷ tenure. It is not a "
+        "bank EMI calculation because no interest rate is entered."
+    )
+
+
+def render_model_information() -> None:
+    """Show real results saved by the notebook without inventing metrics."""
+
+    st.title("Model information")
+    try:
+        _, _, metadata = load_artifacts()
+    except FileNotFoundError as error:
+        st.warning(str(error))
+        return
+
+    with st.container(border=True):
+        st.subheader("Selected models")
+        st.write(f"Classification: `{metadata['best_classification_model']}`")
+        st.write(f"Regression: `{metadata['best_regression_model']}`")
+        st.caption("Models are selected using validation-set metrics in the notebook.")
+
+    if CLASSIFICATION_RESULTS_PATH.exists():
+        with st.container(border=True):
+            st.subheader("Classification comparison")
+            st.dataframe(pd.read_csv(CLASSIFICATION_RESULTS_PATH), hide_index=True)
+
+    if REGRESSION_RESULTS_PATH.exists():
+        with st.container(border=True):
+            st.subheader("Regression comparison")
+            st.dataframe(pd.read_csv(REGRESSION_RESULTS_PATH), hide_index=True)
+
+    st.info(
+        "MLflow runs are stored locally by the notebook. Start `mlflow ui` from the "
+        "project folder to inspect experiment parameters, metrics, and artifacts."
+    )
+
+
+st.set_page_config(
+    page_title="EMIPredict AI",
+    page_icon=":material/account_balance:",
+    layout="wide",
+)
+
+page = st.navigation(
+    [
+        st.Page(render_home, title="Home", icon=":material/home:", default=True),
+        st.Page(
+            render_assessment,
+            title="Customer assessment",
+            icon=":material/person_search:",
+        ),
+        st.Page(
+            render_model_information,
+            title="Model information",
+            icon=":material/insights:",
+        ),
+    ],
+    position="top",
+)
+page.run()

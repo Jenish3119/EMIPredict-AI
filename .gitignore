@@ -1,0 +1,57 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local datasets (directory placeholders remain tracked)
+data/raw/*
+!data/raw/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Generated models, plots, and reports
+artifacts/models/*
+!artifacts/models/.gitkeep
+artifacts/plots/*
+!artifacts/plots/.gitkeep
+artifacts/reports/*
+!artifacts/reports/.gitkeep
+
+# MLflow, databases, logs, and temporary files
+mlruns/
+mlartifacts/
+*.db
+*.sqlite
+*.sqlite3
+logs/
+*.log
+tmp/
+
+# Build outputs
+build/
+dist/
+*.egg-info/

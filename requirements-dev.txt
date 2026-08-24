@@ -1,0 +1,3 @@
+# Editable package installation with development tools.
+-e .[dev]
+
