@@ -1,0 +1,62 @@
+{
+  "feature_columns": [
+    "age",
+    "gender",
+    "marital_status",
+    "education",
+    "monthly_salary",
+    "employment_type",
+    "years_of_employment",
+    "company_type",
+    "house_type",
+    "monthly_rent",
+    "family_size",
+    "dependents",
+    "school_fees",
+    "college_fees",
+    "travel_expenses",
+    "groceries_utilities",
+    "other_monthly_expenses",
+    "existing_loans",
+    "current_emi_amount",
+    "credit_score",
+    "bank_balance",
+    "emergency_fund",
+    "emi_scenario",
+    "requested_amount",
+    "requested_tenure",
+    "total_monthly_expenses",
+    "annual_income",
+    "expense_to_income_ratio",
+    "existing_emi_burden",
+    "disposable_income",
+    "loan_to_income_ratio",
+    "emergency_fund_coverage",
+    "balance_to_income_ratio",
+    "dependent_burden",
+    "requested_payment_proxy",
+    "financial_cushion"
+  ],
+  "class_labels": [
+    "Eligible",
+    "High_Risk",
+    "Not_Eligible"
+  ],
+  "best_classification_model": "XGBoost Classifier",
+  "best_regression_model": "XGBoost Regressor",
+  "classification_test_metrics": {
+    "accuracy": 0.9638339920948616,
+    "macro_f1": 0.8015362838421088,
+    "weighted_f1": 0.9574885404925424,
+    "precision_macro": 0.8991229067948886,
+    "recall_macro": 0.7683193098374402,
+    "roc_auc_ovr": 0.9905418354215577
+  },
+  "regression_test_metrics": {
+    "mae": 310.96456607966275,
+    "rmse": 851.1246672621113,
+    "r2": 0.9879188095954845,
+    "mape": 0.11873036785810161
+  },
+  "fast_mode": true
+}

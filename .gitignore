@@ -34,8 +34,19 @@ data/processed/*
 !data/processed/.gitkeep
 
 # Generated models, plots, and reports
+# Generated model artifacts
 artifacts/models/*
+
+# Keep directory placeholder
 !artifacts/models/.gitkeep
+
+# Final production artifacts required by Streamlit
+!artifacts/models/best_classification_pipeline.joblib
+!artifacts/models/best_regression_pipeline.joblib
+!artifacts/models/model_metadata.json
+!artifacts/models/classification_comparison.csv
+!artifacts/models/regression_comparison.csv
+
 artifacts/plots/*
 !artifacts/plots/.gitkeep
 artifacts/reports/*
