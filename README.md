@@ -1,4 +1,14 @@
-# EMIPredict AI
+# EMIPredict AI — Intelligent Financial Risk Assessment Platform
+
+An end-to-end FinTech machine learning platform for EMI eligibility classification
+and maximum affordable EMI prediction using MLflow and Streamlit.
+
+## 🔗 Project Links
+
+- **Live Demo:** https://emipredict-ai-6gzynwugtr7pzemxek7lvo.streamlit.app/
+- **GitHub Repository:** https://github.com/Jenish3119/EMIPredict-AI
+
+## Project Overview
 
 EMIPredict AI is an educational decision-support project that predicts an EMI eligibility category and estimates a maximum safe monthly EMI. The project uses one beginner-friendly Jupyter notebook for the complete technical workflow and one Python file for the multi-page Streamlit application.
 
