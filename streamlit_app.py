@@ -162,12 +162,12 @@ def render_home() -> None:
         )
 
     with st.container(border=True):
-        st.subheader("Before using the assessment")
+        st.subheader("Project workflow")
         st.write(
-            "Run `EMIPredict_AI_Project.ipynb` from top to bottom. It cleans the "
-            "dataset, trains three classification and three regression models, logs "
-            "runs to MLflow, selects models using validation metrics, and saves the "
-            "best pipelines in `artifacts/models/`."
+            "The notebook cleans the 404,800-row dataset, engineers transparent "
+            "financial features, compares three classification and three regression "
+            "models, records the experiments with MLflow, and saves the selected "
+            "pipelines used by this application."
         )
 
     st.info(
@@ -378,7 +378,48 @@ def render_model_information() -> None:
         st.subheader("Selected models")
         st.write(f"Classification: `{metadata['best_classification_model']}`")
         st.write(f"Regression: `{metadata['best_regression_model']}`")
-        st.caption("Models are selected using validation-set metrics in the notebook.")
+        st.caption(
+            "Classification is selected by validation macro F1. Regression is "
+            "selected by validation RMSE; lower RMSE is better."
+        )
+
+    classification_metrics = metadata["classification_test_metrics"]
+    regression_metrics = metadata["regression_test_metrics"]
+
+    st.subheader("Untouched test-set performance")
+    with st.container(horizontal=True):
+        st.metric(
+            "Classification accuracy",
+            f"{classification_metrics['accuracy']:.2%}",
+            border=True,
+        )
+        st.metric(
+            "Classification macro F1",
+            f"{classification_metrics['macro_f1']:.2%}",
+            border=True,
+        )
+        st.metric(
+            "Classification ROC AUC",
+            f"{classification_metrics['roc_auc_ovr']:.2%}",
+            border=True,
+        )
+
+    with st.container(horizontal=True):
+        st.metric(
+            "Regression MAE",
+            format_inr(regression_metrics["mae"]),
+            border=True,
+        )
+        st.metric(
+            "Regression RMSE",
+            format_inr(regression_metrics["rmse"]),
+            border=True,
+        )
+        st.metric(
+            "Regression R²",
+            f"{regression_metrics['r2']:.2%}",
+            border=True,
+        )
 
     if CLASSIFICATION_RESULTS_PATH.exists():
         with st.container(border=True):
@@ -390,10 +431,89 @@ def render_model_information() -> None:
             st.subheader("Regression comparison")
             st.dataframe(pd.read_csv(REGRESSION_RESULTS_PATH), hide_index=True)
 
+    if metadata.get("fast_mode"):
+        st.warning(
+            "The saved training run used the notebook's beginner-friendly fast mode: "
+            "100,000 stratified training rows plus the complete 60,720-row validation "
+            "and 60,720-row test sets. The data-quality audit used all 404,800 rows."
+        )
+
     st.info(
-        "MLflow runs are stored locally by the notebook. Start `mlflow ui` from the "
-        "project folder to inspect experiment parameters, metrics, and artifacts."
+        "MLflow records every model variant in the local classification and regression "
+        "experiments. The selected pipelines are registered as "
+        "`EMIPredict_Eligibility_Model` and `EMIPredict_Max_EMI_Model`."
     )
+
+
+def render_project_report() -> None:
+    """Summarize methodology, evidence, business impact, and limitations."""
+
+    st.title("Project report")
+    st.caption("Methodology, exploratory insights, and responsible-use recommendations")
+
+    with st.container(border=True):
+        st.subheader("Methodology and architecture")
+        st.code(
+            "Raw CSV (404,800 rows)\n"
+            "  → quality checks and cleaning\n"
+            "  → 11 financial features\n"
+            "  → train / validation / test split\n"
+            "  → 3 classifiers + 3 regressors\n"
+            "  → MLflow comparison and registry\n"
+            "  → selected pipelines\n"
+            "  → Streamlit real-time assessment",
+            language=None,
+        )
+        st.write(
+            "Numeric missing values are imputed with the median and scaled. "
+            "Categorical missing values use the most frequent category and are "
+            "one-hot encoded. Unknown categories are handled safely."
+        )
+
+    st.subheader("Data-quality and exploratory findings")
+    with st.container(horizontal=True):
+        st.metric("Dataset rows", "404,800", border=True)
+        st.metric("Original columns", "27", border=True)
+        st.metric("Engineered model inputs", "36", border=True)
+
+    with st.container(border=True):
+        st.markdown(
+            "- No duplicate rows were detected.\n"
+            "- Missingness was low—about 0.58% to 0.60% in education, rent, "
+            "credit score, bank balance, and emergency fund.\n"
+            "- Eligibility was imbalanced: 77.29% Not Eligible, 18.39% Eligible, "
+            "and 4.32% High Risk. Macro F1 is therefore more informative than "
+            "accuracy alone.\n"
+            "- Profiles without an existing loan were Eligible in 25.78% of rows, "
+            "compared with 7.27% for profiles with an existing loan. This is an "
+            "association in the supplied data, not proof of causation.\n"
+            "- Vehicle and personal-loan scenarios had the highest Not Eligible "
+            "shares, at 86.15% and 85.25%.\n"
+            "- Median maximum monthly EMI was ₹13,840 for Eligible profiles, "
+            "₹10,285 for High Risk profiles, and ₹2,464 for Not Eligible profiles."
+        )
+
+    with st.container(border=True):
+        st.subheader("Potential business impact")
+        st.markdown(
+            "- Give staff a consistent first-pass affordability estimate.\n"
+            "- Send High Risk cases to manual review instead of automatic rejection.\n"
+            "- Use the maximum-EMI estimate to discuss safer requested amounts or tenures.\n"
+            "- Compare model results with policy rules while keeping a human decision-maker.\n"
+            "- Monitor performance and class balance as customer behaviour changes."
+        )
+
+    with st.container(border=True):
+        st.subheader("Limitations and responsible use")
+        st.markdown(
+            "- Results depend on the supplied synthetic/project dataset and may not "
+            "represent real applicants.\n"
+            "- The saved model was trained in fast mode for understandable execution time.\n"
+            "- Sensitive-group fairness, calibration, drift, security, and regulatory "
+            "validation require additional work before any real lending use.\n"
+            "- Predictions are educational decision support, not loan approval or "
+            "financial advice."
+        )
 
 
 st.set_page_config(
@@ -414,6 +534,11 @@ page = st.navigation(
             render_model_information,
             title="Model information",
             icon=":material/insights:",
+        ),
+        st.Page(
+            render_project_report,
+            title="Project report",
+            icon=":material/description:",
         ),
     ],
     position="top",
