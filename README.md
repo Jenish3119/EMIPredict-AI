@@ -5,7 +5,7 @@ and maximum affordable EMI prediction using MLflow and Streamlit.
 
 ## 🔗 Project Links
 
-- **Live Demo:** https://emipredict-ai-6gzynwugtr7pzemxek7lvo.streamlit.app/
+- **Deployed app:** https://emipredict-ai-6gzynwugtr7pzemxek7lvo.streamlit.app/ *(currently requires sign-in; make it public before submission)*
 - **GitHub Repository:** https://github.com/Jenish3119/EMIPredict-AI
 
 ## Project Overview
@@ -29,7 +29,7 @@ GitHub repository: [Jenish3119/EMIPredict-AI](https://github.com/Jenish3119/EMIP
 | MLflow tracking and registry | Two experiments and two registered selected models | Complete locally |
 | Multi-page real-time Streamlit app | `streamlit_app.py` | Complete and locally tested |
 | GitHub codebase and documentation | This repository and README | Complete |
-| Public Streamlit Cloud URL | Deploy from this repository | Pending |
+| Public Streamlit Cloud access | Deployment exists, but anonymous visitors are redirected to sign-in | Action required |
 
 ## Project files for evaluation
 
@@ -170,12 +170,15 @@ Run the automated project checks with:
 
 ## Streamlit Community Cloud deployment
 
-1. Sign in at [share.streamlit.io](https://share.streamlit.io/) using the GitHub account that can access the repository.
-2. Choose **Create app** and select `Jenish3119/EMIPredict-AI`.
-3. Select branch `main` and entry point `streamlit_app.py`.
-4. In advanced settings, choose Python 3.10 if a version choice is shown.
-5. Deploy the app. The tracked model artifacts let it make predictions without the original CSV or local MLflow database.
-6. Add the resulting public URL near the top of this README.
+The app is already deployed. One final account setting is required to satisfy the public-access deliverable:
+
+1. Sign in at [share.streamlit.io](https://share.streamlit.io/) using the GitHub account that owns the deployment.
+2. Open the EMIPredict app's **App settings**, then open **Sharing**.
+3. Under **Who can view this app**, select **This app is public and searchable** and save.
+4. Open the deployed URL in a private/incognito browser window. It must load without a Streamlit sign-in page.
+5. Change the deliverable status above from **Action required** to **Complete**.
+
+See Streamlit's [official sharing instructions](https://docs.streamlit.io/deploy/streamlit-community-cloud/share-your-app) if the menu position has changed.
 
 ## Limitations and responsible use
 
