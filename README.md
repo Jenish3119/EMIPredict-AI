@@ -5,7 +5,7 @@ and maximum affordable EMI prediction using MLflow and Streamlit.
 
 ## 🔗 Project Links
 
-- **Deployed app:** https://emipredict-ai-6gzynwugtr7pzemxek7lvo.streamlit.app/ *(currently requires sign-in; make it public before submission)*
+- **Deployed App:** https://emipredict-ai-6gzynwugtr7pzemxek7lvo.streamlit.app/
 - **GitHub Repository:** https://github.com/Jenish3119/EMIPredict-AI
 
 ## Project Overview
@@ -18,18 +18,29 @@ GitHub repository: [Jenish3119/EMIPredict-AI](https://github.com/Jenish3119/EMIP
 
 ## Deliverable status
 
-| Deliverable | Evidence | Status |
-|---|---|---|
-| Data cleaning and preprocessing | `EMIPredict_AI_Project.ipynb`, sections 2–4 | Complete |
-| Feature engineering and transformations | Notebook section 5 | Complete |
-| EDA and visualizations | Notebook section 6 and its saved outputs | Complete |
-| Three classification models | Logistic Regression, Random Forest, XGBoost | Complete |
-| Three regression models | Linear Regression, Random Forest, XGBoost | Complete |
-| Best-model selection and comparison | Notebook sections 10–12 and comparison CSV files | Complete |
-| MLflow tracking and registry | Two experiments and two registered selected models | Complete locally |
-| Multi-page real-time Streamlit app | `streamlit_app.py` | Complete and locally tested |
-| GitHub codebase and documentation | This repository and README | Complete |
-| Public Streamlit Cloud access | Deployment exists, but anonymous visitors are redirected to sign-in | Action required |
+| Deliverable                             | Evidence                                           | Status                      |
+| --------------------------------------- | -------------------------------------------------- | --------------------------- | --- |
+| Data cleaning and preprocessing         | `EMIPredict_AI_Project.ipynb`, sections 2–4        | Complete                    |
+| Feature engineering and transformations | Notebook section 5                                 | Complete                    |
+| EDA and visualizations                  | Notebook section 6 and its saved outputs           | Complete                    |
+| Three classification models             | Logistic Regression, Random Forest, XGBoost        | Complete                    |
+| Three regression models                 | Linear Regression, Random Forest, XGBoost          | Complete                    |
+| Best-model selection and comparison     | Notebook sections 10–12 and comparison CSV files   | Complete                    |
+| MLflow tracking and registry            | Two experiments and two registered selected models | Complete locally            |
+| Multi-page real-time Streamlit app      | `streamlit_app.py`                                 | Complete and locally tested |
+| GitHub codebase and documentation       | This repository and README                         | Complete                    |
+| Public Streamlit Cloud access           | Public deployment URL                              | Complete                    |     |
+
+| CRUD / Data Management | Create, Read, Update, Delete using SQLite + Streamlit | Complete |
+
+## Data Management
+
+The Streamlit application includes a SQLite-based CRUD interface for managing sample EMI application records.
+
+- Create new records
+- Read stored records
+- Update customer information
+- Delete records
 
 ## Project files for evaluation
 
@@ -88,35 +99,38 @@ The preprocessing pipelines use:
 
 ## Exploratory findings and business interpretation
 
-- Eligibility is imbalanced: 77.29% Not Eligible, 18.39% Eligible, and 4.32% High Risk. This is why macro F1 is the primary classification-selection metric rather than accuracy alone.
-- Profiles without an existing loan were Eligible in 25.78% of rows, compared with 7.27% for profiles with an existing loan. This is an association in the supplied dataset and does not prove causation.
-- Vehicle EMI and Personal Loan EMI had the highest Not Eligible proportions: 86.15% and 85.25%.
-- Median maximum monthly EMI was ₹13,840 for Eligible profiles, ₹10,285 for High Risk profiles, and ₹2,464 for Not Eligible profiles.
-- The eligibility-by-scenario and salary-versus-maximum-EMI charts are displayed directly in the executed notebook.
+- Eligible applicants had higher average credit scores (725.6) than Not_Eligible applicants (693.5).
+- Median expense-to-income ratio increased from 53.3% for Eligible to 75.9% for Not_Eligible applicants.
+- Median disposable income fell from ₹28,900 for Eligible to ₹6,500 for Not_Eligible applicants.
+- Median loan-to-income ratio increased from 13.3% for Eligible to 54.0% for Not_Eligible applicants.
+- Government employees showed the highest Eligible share (21.4%), while Self-employed applicants showed 16.5%.
 
 ## Model comparison and selection
 
 ### Classification validation results
 
-| Model | Accuracy | Macro F1 | ROC AUC OVR |
-|---|---:|---:|---:|
-| XGBoost Classifier | 96.33% | 79.78% | 99.06% |
-| Random Forest Classifier | 94.29% | 78.24% | 97.89% |
-| Logistic Regression | 91.24% | 60.33% | 95.08% |
+| Model                    | Accuracy | Macro F1 | ROC AUC OVR |
+| ------------------------ | -------: | -------: | ----------: |
+| XGBoost Classifier       |   96.33% |   79.78% |      99.06% |
+| Random Forest Classifier |   94.29% |   78.24% |      97.89% |
+| Logistic Regression      |   91.24% |   60.33% |      95.08% |
 
 XGBoost was selected because it produced the highest validation macro F1. On the untouched test set it achieved 96.38% accuracy, 80.15% macro F1, and 99.05% one-vs-rest ROC AUC.
 
 ### Regression validation results
 
-| Model | MAE | RMSE | R² |
-|---|---:|---:|---:|
-| XGBoost Regressor | ₹312.32 | ₹854.05 | 98.79% |
-| Random Forest Regressor | ₹239.51 | ₹921.21 | 98.60% |
-| Linear Regression | ₹2,899.80 | ₹4,063.09 | 72.71% |
+| Model                   |       MAE |      RMSE |     R² |
+| ----------------------- | --------: | --------: | -----: |
+| XGBoost Regressor       |   ₹312.32 |   ₹854.05 | 98.79% |
+| Random Forest Regressor |   ₹239.51 |   ₹921.21 | 98.60% |
+| Linear Regression       | ₹2,899.80 | ₹4,063.09 | 72.71% |
 
 XGBoost was selected using the lowest validation RMSE, the declared selection metric. Random Forest produced a lower MAE, which is reported transparently. On the untouched test set, XGBoost achieved MAE ₹310.96, RMSE ₹851.12, and R² 98.79%.
 
 The saved run used `FAST_MODE = True`: 100,000 stratified training rows and the complete 60,720-row validation and 60,720-row test sets. The quality audit and EDA use all 404,800 rows. Set `FAST_MODE = False` in the notebook when full training is required and execution time is available.
+
+- The classifier performs strongly overall, but High_Risk recall is only 33.1%, making this class the main improvement area.
+- Regression residuals are centered near zero, although some high-value cases show larger prediction errors.
 
 ## MLflow evidence
 

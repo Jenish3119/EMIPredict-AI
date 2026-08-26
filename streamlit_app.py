@@ -7,6 +7,7 @@ Then start this application with:
 
 from __future__ import annotations
 
+import sqlite3
 import json
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,149 @@ REGRESSION_MODEL_PATH = MODEL_DIR / "best_regression_pipeline.joblib"
 METADATA_PATH = MODEL_DIR / "model_metadata.json"
 CLASSIFICATION_RESULTS_PATH = MODEL_DIR / "classification_comparison.csv"
 REGRESSION_RESULTS_PATH = MODEL_DIR / "regression_comparison.csv"
+DATABASE_PATH = PROJECT_ROOT / "emi_applications.db"
+
+
+def init_database():
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS applications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_name TEXT,
+            monthly_salary REAL,
+            requested_amount REAL,
+            requested_tenure INTEGER,
+            emi_scenario TEXT
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+init_database()
+
+
+
+def show_data_management():
+
+    st.title("Data Management")
+
+    operation = st.selectbox(
+        "Choose operation",
+        ["Create", "Read", "Update", "Delete"]
+    )
+
+    # CREATE
+    if operation == "Create":
+
+        name = st.text_input("Customer Name")
+        salary = st.number_input("Monthly Salary", min_value=0.0)
+        amount = st.number_input("Requested Amount", min_value=0.0)
+        tenure = st.number_input("Tenure", min_value=1, step=1)
+
+        scenario = st.selectbox(
+            "EMI Scenario",
+            [
+                "E-commerce Shopping EMI",
+                "Home Appliances EMI",
+                "Education EMI",
+                "Personal Loan EMI",
+                "Vehicle EMI"
+            ]
+        )
+
+        if st.button("Add Record"):
+
+            conn = sqlite3.connect(DATABASE_PATH)
+
+            conn.execute(
+                """
+                INSERT INTO applications
+                (customer_name, monthly_salary,
+                 requested_amount, requested_tenure, emi_scenario)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, salary, amount, tenure, scenario)
+            )
+
+            conn.commit()
+            conn.close()
+
+            st.success("Record added successfully.")
+
+
+    # READ
+    elif operation == "Read":
+
+        conn = sqlite3.connect(DATABASE_PATH)
+
+        df = pd.read_sql(
+            "SELECT * FROM applications",
+            conn
+        )
+
+        conn.close()
+
+        st.dataframe(df)
+
+    # UPDATE
+    elif operation == "Update":
+
+        record_id = st.number_input(
+            "Record ID",
+            min_value=1,
+            step=1
+        )
+
+        salary = st.number_input(
+            "New Monthly Salary",
+            min_value=0.0
+        )
+
+        if st.button("Update Record"):
+
+            conn = sqlite3.connect(DATABASE_PATH)
+
+            conn.execute(
+                """
+                UPDATE applications
+                SET monthly_salary = ?
+                WHERE id = ?
+                """,
+                (salary, record_id)
+            )
+
+            conn.commit()
+            conn.close()
+
+            st.success("Record updated.")
+
+
+    # DELETE
+    elif operation == "Delete":
+
+        record_id = st.number_input(
+            "Record ID to Delete",
+            min_value=1,
+            step=1
+        )
+
+        if st.button("Delete Record"):
+
+            conn = sqlite3.connect(DATABASE_PATH)
+
+            conn.execute(
+                "DELETE FROM applications WHERE id = ?",
+                (record_id,)
+            )
+
+            conn.commit()
+            conn.close()
+
+            st.success("Record deleted.")
 
 
 def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
@@ -539,6 +683,11 @@ page = st.navigation(
             render_project_report,
             title="Project report",
             icon=":material/description:",
+        ),
+        st.Page(
+            show_data_management,
+            title="Data Management",
+            icon=":material/database:",
         ),
     ],
     position="top",
